@@ -319,7 +319,7 @@ class CommandBPop : public BlockingCommander {
     return !s.IsNotFound();
   }
 
-  std::string NoopReply(const Connection *conn) override { return conn->NilString(); }
+  std::string NoopReply(Connection *conn) override { return conn->NilString(); }
 
  private:
   bool left_ = false;
@@ -442,7 +442,7 @@ class CommandBLMPop : public BlockingCommander {
     return !s.IsNotFound();
   }
 
-  std::string NoopReply(const Connection *conn) override { return conn->NilString(); }
+  std::string NoopReply(Connection *conn) override { return conn->NilString(); }
 
   static const inline CommandKeyRangeGen keyRangeGen = [](const std::vector<std::string> &args) {
     CommandKeyRange range;
@@ -626,7 +626,7 @@ class CommandLSet : public Commander {
       return {Status::RedisExecErr, errNoSuchKey};
     }
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 
@@ -657,7 +657,7 @@ class CommandLTrim : public Commander {
       return {Status::RedisExecErr, s.ToString()};
     }
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 
@@ -786,7 +786,7 @@ class CommandBLMove : public BlockingCommander {
     return !empty;
   }
 
-  std::string NoopReply(const Connection *conn) override { return conn->NilArray(); }
+  std::string NoopReply(Connection *conn) override { return conn->NilArray(); }
 
  private:
   bool src_left_;

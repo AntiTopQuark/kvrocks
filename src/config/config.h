@@ -233,6 +233,10 @@ struct Config {
   void ClearMaster();
   bool IsSlave() const { return !master_host.empty(); }
   bool HasConfigFile() const { return !path_.empty(); }
+  const std::vector<ClientOutputBufferLimitConfig> &GetClientOutputBufferLimits() const {
+    return client_output_buffer_limits_;
+  }
+  bool IsClientOutputBufferLimitsEnabled() const;
 
  private:
   std::string path_;
@@ -246,6 +250,7 @@ struct Config {
   std::string profiling_sample_commands_str_;
   std::map<std::string, std::unique_ptr<ConfigField>> fields_;
   std::vector<std::string> rename_command_;
+  std::vector<ClientOutputBufferLimitConfig> client_output_buffer_limits_;
 
   void initFieldValidator();
   void initFieldCallback();

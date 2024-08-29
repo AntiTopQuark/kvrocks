@@ -47,10 +47,16 @@
 namespace redis {
 
 Connection::Connection(bufferevent *bev, Worker *owner)
-    : need_free_bev_(true), bev_(bev), req_(owner->srv), owner_(owner), srv_(owner->srv) {
+    : need_free_bev_(true),
+      bev_(bev),
+      req_(owner->srv),
+      owner_(owner),
+      srv_(owner->srv),
+      obuf_soft_limit_reached_time_(0) {
   int64_t now = util::GetTimeStamp();
   create_time_ = now;
   last_interaction_ = now;
+  output_buffer_.clear();
 }
 
 Connection::~Connection() {
@@ -189,6 +195,82 @@ bool Connection::CanMigrate() const {
          && !IsFlagEnabled(redis::Connection::kCloseAfterReply)          // close after reply
          && saved_current_command_ == nullptr                            // not executing blocking command like BLPOP
          && subscribe_channels_.empty() && subscribe_patterns_.empty();  // not subscribing any channel
+}
+
+std::string Connection::Integer(int64_t i) {
+  auto res = redis::Integer(, i);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::Bool(bool b) {
+  auto res = redis::Bool(protocol_version_, b);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::BigNumber(const std::string &n) {
+  auto res = redis::BigNumber(protocol_version_, n);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::Double(double d) {
+  auto res = redis::Double(protocol_version_, d);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::VerbatimString(std::string ext, const std::string &data) {
+  auto res = redis::VerbatimString(protocol_version_, std::move(ext), data);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::NilString() {
+  auto res = redis::NilString(protocol_version_);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::NilArray() {
+  auto res = redis::NilArray(protocol_version_);
+  return CheckClientReachOBufLimits(res);
+}
+std::string Connection::MultiBulkString(const std::vector<std::string> &values) {
+  auto res =  redis::MultiBulkString(protocol_version_, values);
+  return CheckClientReachOBufLimits(res);
+}
+std::string Connection::MultiBulkString(const std::vector<std::string> &values,
+                            const std::vector<rocksdb::Status> &statuses) {
+  auto res =  redis::MultiBulkString(protocol_version_, values, statuses);
+  return CheckClientReachOBufLimits(res);
+}
+std::string Connection::HeaderOfSet(T len) {
+  auto res =  redis::HeaderOfSet(protocol_version_, len);
+  return CheckClientReachOBufLimits(res);
+}
+std::string Connection::SetOfBulkStrings(const std::vector<std::string> &elems) {
+  auto res = redis::SetOfBulkStrings(protocol_version_, elems);
+  return CheckClientReachOBufLimits(res);
+}
+std::string Connection::HeaderOfMap(T len) {
+  auto res = redis::HeaderOfMap(protocol_version_, len);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::MapOfBulkStrings(const std::vector<std::string> &elems) {
+  auto res = redis::MapOfBulkStrings(protocol_version_, elems);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::Map(const std::map<std::string, std::string> &map) {
+  auto res = redis::Map(protocol_version_, map);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::HeaderOfAttribute(T len)  {
+  std::string res = redis::HeaderOfAttribute(len);
+  return CheckClientReachOBufLimits(res);
+}
+
+std::string Connection::SimpleString(const std::string &msg) {
+  auto res = redis::SimpleString(msg);
+  return CheckClientReachOBufLimits(res);
 }
 
 void Connection::SubscribeChannel(const std::string &channel) {
@@ -368,8 +450,9 @@ static bool IsCmdForIndexing(const CommandAttributes *attr) {
 }
 
 void Connection::ExecuteCommands(std::deque<CommandTokens> *to_process_cmds) {
+  output_buffer_.clear();
   const Config *config = srv_->GetConfig();
-  std::string reply;
+  std::string &reply = output_buffer_;
   std::string password = config->requirepass;
 
   while (!to_process_cmds->empty()) {
@@ -547,8 +630,15 @@ void Connection::ExecuteCommands(std::deque<CommandTokens> *to_process_cmds) {
 
     srv_->UpdateWatchedKeysFromArgs(cmd_tokens, *attributes);
 
-    if (!reply.empty()) Reply(reply);
-    reply.clear();
+    if (IsReachOBufLimit()) {
+      Reply(redis::Error({Status::NotOK, "client reached output buffer limits"}));
+      reply.clear();
+      break;
+    }
+  
+    if (!reply.empty()) {
+      Reply(reply);
+    }
   }
 }
 
@@ -557,6 +647,88 @@ void Connection::ResetMultiExec() {
   multi_error_ = false;
   multi_cmds_.clear();
   DisableFlag(Connection::kMultiExec);
+}
+
+bool Connection::CheckClientReachOBufLimits(size_t reply_bytes) {
+  assert(reply_bytes < SIZE_MAX - (1024 * 64));
+  if (reply_bytes == 0 && GetClientType() != kTypeSlave) {
+    return false;
+  }
+  int client_type = 0;
+  if (GetClientType() == kTypeSlave) {
+    client_type = 1;
+  } else if (GetClientType() == kTypePubsub) {
+    client_type = 2;
+  } else {
+    client_type = 0;
+  }
+
+  bool hard = false;
+  bool soft = false;
+  auto hard_limit_bytes = GetServer()->GetConfig()->GetClientOutputBufferLimits()[client_type].hard_limit_bytes;
+  auto soft_limit_bytes = GetServer()->GetConfig()->GetClientOutputBufferLimits()[client_type].soft_limit_bytes;
+  if (hard_limit_bytes && reply_bytes >= hard_limit_bytes) {
+    hard = true;
+  }
+  if (soft_limit_bytes && reply_bytes >= soft_limit_bytes) {
+    soft = true;
+  }
+
+  if (soft) {
+    if (GetObufSoftLimitReachedTime() == 0) {
+      SetObufSoftLimitReachedTime(util::GetTimeStamp());
+      soft = false;
+    } else {
+      uint64_t elapsed = util::GetTimeStamp() - GetObufSoftLimitReachedTime();
+      if (elapsed <= GetServer()->GetConfig()->GetClientOutputBufferLimits()[0].soft_limit_seconds) {
+        soft = false;
+      }
+    }
+  } else {
+    SetObufSoftLimitReachedTime(0);
+  }
+  return hard || soft;
+}
+
+std::string Connection::CheckClientReachOBufLimits(const std::string &msg) {
+  auto memSize = msg.size() + GetOutputBuffer().capacity() + evbuffer_get_length(Output());
+  if (CheckClientReachOBufLimits(memSize)) {
+    SetReachOBufLimit(true);
+    return "";
+  }
+  return msg;
+}
+
+size_t Connection::GetConnectionMemoryUsed() const {
+  size_t total_memory = sizeof(*this);  // 包含所有成员变量的静态内存大小
+
+  total_memory += name_.capacity();
+  total_memory += ns_.capacity();
+  total_memory += ip_.capacity();
+  total_memory += announce_ip_.capacity();
+  total_memory += addr_.capacity();
+  total_memory += last_cmd_.capacity();
+  total_memory += output_buffer_.capacity();
+  total_memory += evbuffer_get_length(Output()) + evbuffer_get_length(Input());
+
+  for (const auto &channel : subscribe_channels_) {
+    total_memory += channel.capacity();
+  }
+  for (const auto &pattern : subscribe_patterns_) {
+    total_memory += pattern.capacity();
+  }
+  for (const auto &channel : subscribe_shard_channels_) {
+    total_memory += channel.capacity();
+  }
+  for (const auto &cmd : multi_cmds_) {
+    total_memory += cmd.capacity();
+  }
+
+  if (saved_current_command_) {
+    total_memory += saved_current_command_->GetMemoryUsage();
+  }
+
+  return total_memory;
 }
 
 }  // namespace redis

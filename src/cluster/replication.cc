@@ -106,7 +106,8 @@ void FeedSlaveThread::loop() {
   // first batch here to work around this issue instead of waiting for enough batch size.
   bool is_first_repl_batch = true;
   uint32_t yield_microseconds = 2 * 1000;
-  std::string batches_bulk;
+  std::string &batches_bulk = conn_->GetOutputBuffer();
+  batches_bulk.clear();
   size_t updates_in_batches = 0;
   while (!IsStopped()) {
     auto curr_seq = next_repl_seq_.load();
@@ -142,6 +143,11 @@ void FeedSlaveThread::loop() {
     if (is_first_repl_batch || batches_bulk.size() >= kMaxDelayBytes || updates_in_batches >= kMaxDelayUpdates ||
         srv_->storage->LatestSeqNumber() - batch.sequence <= kMaxDelayUpdates) {
       // Send entire bulk which contain multiple batches
+      if (conn_->CheckClientReachOBufLimits(batches_bulk.capacity())) {
+        srv_->stats.IncrReachOutbufLimitDisconnections();
+        Stop();
+        return;
+      }
       auto s = util::SockSend(conn_->GetFD(), batches_bulk, conn_->GetBufferEvent());
       if (!s.IsOK()) {
         LOG(ERROR) << "Write error while sending batch to slave: " << s.Msg() << ". batches: 0x"

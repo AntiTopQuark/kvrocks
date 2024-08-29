@@ -56,7 +56,7 @@ Worker::Worker(Server *srv, Config *config) : srv(srv), base_(event_base_new()) 
   if (!base_) throw std::runtime_error{"event base failed to be created"};
 
   timer_.reset(NewEvent(base_, -1, EV_PERSIST));
-  timeval tm = {10, 0};
+  timeval tm = {1, 0};
   evtimer_add(timer_.get(), &tm);
 
   uint32_t ports[3] = {config->port, config->tls_port, 0};
@@ -339,6 +339,7 @@ redis::Connection *Worker::removeConnection(int fd) {
   auto iter = conns_.find(fd);
   if (iter != conns_.end()) {
     conn = iter->second;
+    conn->GetOutputBuffer().clear();
     conns_.erase(iter);
     srv->DecrClientNum();
   }
@@ -448,6 +449,13 @@ Status Worker::Reply(int fd, const std::string &reply) {
   auto iter = conns_.find(fd);
   if (iter != conns_.end()) {
     iter->second->SetLastInteraction();
+    if (iter->second->CheckClientReachOBufLimits(reply.size() + evbuffer_get_length(iter->second->Output()))) {
+      srv->stats.IncrReachOutbufLimitDisconnections();
+      // unlock before calling FreeConnectionByID, otherwise it will cause nested deadlock
+      lock.unlock();
+      FreeConnectionByID(iter->first, iter->second->GetID());
+      return {Status::NotOK, "connection reach output buffer limits"};
+    }
     redis::Reply(iter->second->Output(), reply);
     return Status::OK();
   }
@@ -551,6 +559,39 @@ void Worker::KickoutIdleClients(int timeout) {
   for (const auto &conn : to_be_killed_conns) {
     FreeConnectionByID(conn.first, conn.second);
   }
+}
+
+void Worker::KickoutReachOBufLimitsClients() {
+  std::vector<std::pair<int, uint64_t>> to_be_killed_conns;
+
+  {
+    std::lock_guard<std::mutex> guard(conns_mu_);
+    if (conns_.empty()) {
+      return;
+    }
+
+    for (auto &it : conns_) {
+      auto conn = it.second;
+      if (conn->CheckClientReachOBufLimits(conn->GetOutputBuffer().capacity() + evbuffer_get_length(conn->Output()))) {
+        to_be_killed_conns.emplace_back(it.first, conn->GetID());
+      }
+    }
+  }
+
+  for (const auto &conn : to_be_killed_conns) {
+    srv->stats.IncrReachOutbufLimitDisconnections();
+    FreeConnectionByID(conn.first, conn.second);
+  }
+}
+
+size_t Worker::GetConnectionsMemoryUsed() {
+  size_t mem = 0;
+  std::lock_guard<std::mutex> guard(conns_mu_);
+
+  for (auto &it : conns_) {
+    mem += it.second->GetConnectionMemoryUsed();
+  }
+  return mem;
 }
 
 void WorkerThread::Start() {

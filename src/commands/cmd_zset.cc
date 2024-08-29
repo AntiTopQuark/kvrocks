@@ -340,7 +340,7 @@ class CommandBZPop : public BlockingCommander {
     return StartBlocking(timeout_, output);
   }
 
-  std::string NoopReply(const Connection *conn) override { return conn->NilArray(); }
+  std::string NoopReply(Connection *conn) override { return conn->NilArray(); }
 
   void BlockKeys() override {
     for (const auto &key : keys_) {
@@ -354,7 +354,7 @@ class CommandBZPop : public BlockingCommander {
     }
   }
 
-  void SendMembersWithScores(const Connection *conn, const std::vector<MemberScore> &member_scores,
+  void SendMembersWithScores(Connection *conn, const std::vector<MemberScore> &member_scores,
                              const std::string &user_key) {
     std::string output;
     output.append(redis::MultiLen(member_scores.size() * 2 + 1));
@@ -546,7 +546,7 @@ class CommandBZMPop : public BlockingCommander {
     }
   }
 
-  std::string NoopReply(const Connection *conn) override { return conn->NilString(); }
+  std::string NoopReply(Connection *conn) override { return conn->NilString(); }
 
   bool OnBlockingWrite() override {
     std::string user_key;

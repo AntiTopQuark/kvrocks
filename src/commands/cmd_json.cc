@@ -33,7 +33,7 @@
 namespace redis {
 
 template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-std::string OptionalsToString(const Connection *conn, Optionals<T> &opts) {
+std::string OptionalsToString(Connection *conn, Optionals<T> &opts) {
   std::string str = MultiLen(opts.size());
   for (const auto &opt : opts) {
     if (opt.has_value()) {
@@ -61,7 +61,7 @@ class CommandJsonSet : public Commander {
     auto s = json.Set(ctx, args_[1], args_[2], args_[3]);
     if (!s.ok()) return {Status::RedisExecErr, s.ToString()};
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };
@@ -339,7 +339,7 @@ class CommandJsonMerge : public Commander {
     if (!result) {
       *output = conn->NilString();
     } else {
-      *output = redis::SimpleString("OK");
+      *output = conn->SimpleString("OK");
     }
 
     return Status::OK();
@@ -653,7 +653,7 @@ class CommandJsonMSet : public Commander {
     engine::Context ctx(svr->storage);
     if (auto s = json.MSet(ctx, user_keys, paths, values); !s.ok()) return {Status::RedisExecErr, s.ToString()};
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };

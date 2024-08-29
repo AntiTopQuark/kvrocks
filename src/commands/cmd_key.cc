@@ -39,7 +39,7 @@ class CommandType : public Commander {
     auto s = redis.Type(ctx, args_[1], &type);
     if (s.ok()) {
       if (type >= RedisTypeNames.size()) return {Status::RedisExecErr, "Invalid type"};
-      *output = redis::SimpleString(RedisTypeNames[type]);
+      *output = conn->SimpleString(RedisTypeNames[type]);
       return Status::OK();
     }
 
@@ -367,7 +367,7 @@ class CommandRename : public Commander {
     auto s = redis.Copy(ctx, ns_key, new_ns_key, false, true, &res);
     if (!s.ok()) return {Status::RedisExecErr, s.ToString()};
     if (res == Database::CopyResult::KEY_NOT_EXIST) return {Status::RedisExecErr, "no such key"};
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };

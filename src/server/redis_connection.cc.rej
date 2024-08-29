@@ -1,0 +1,11 @@
+diff a/src/server/redis_connection.cc b/src/server/redis_connection.cc	(rejected hunks)
+@@ -97,6 +103,9 @@ void Connection::OnRead(struct bufferevent *bev) {
+   if (IsFlagEnabled(kCloseAsync)) {
+     Close();
+   }
++  if (IsReachOBufLimit()) {
++    Close();
++  }
+ }
+ 
+ void Connection::OnWrite(bufferevent *bev) {

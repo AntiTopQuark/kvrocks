@@ -193,7 +193,7 @@ class CommandReplConf : public Commander {
     if (!ip_address_.empty()) {
       conn->SetAnnounceIP(ip_address_);
     }
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 
@@ -290,7 +290,6 @@ class CommandFetchFile : public Commander {
         auto start = std::chrono::high_resolution_clock::now();
         auto fd = UniqueFD(engine::Storage::ReplDataManager::OpenDataFile(srv->storage, file, &file_size));
         if (!fd) break;
-
         // Send file size and content
         if (util::SockSend(repl_fd, std::to_string(file_size) + CRLF, bev).IsOK() &&
             util::SockSendFile(repl_fd, *fd, file_size, bev).IsOK()) {

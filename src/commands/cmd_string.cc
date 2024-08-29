@@ -323,7 +323,7 @@ class CommandSet : public Commander {
       }
     } else {
       if (ret.has_value()) {
-        *output = redis::SimpleString("OK");
+        *output = conn->SimpleString("OK");
       } else {
         *output = conn->NilString();
       }
@@ -357,7 +357,7 @@ class CommandSetEX : public Commander {
     redis::String string_db(srv->storage, conn->GetNamespace());
     engine::Context ctx(srv->storage);
     auto s = string_db.SetEX(ctx, args_[1], args_[3], expire_);
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 
@@ -384,7 +384,7 @@ class CommandPSetEX : public Commander {
     redis::String string_db(srv->storage, conn->GetNamespace());
     engine::Context ctx(srv->storage);
     auto s = string_db.SetEX(ctx, args_[1], args_[3], expire_);
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 
@@ -414,7 +414,7 @@ class CommandMSet : public Commander {
       return {Status::RedisExecErr, s.ToString()};
     }
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };

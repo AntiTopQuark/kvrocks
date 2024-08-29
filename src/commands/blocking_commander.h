@@ -31,7 +31,7 @@ class BlockingCommander : public Commander,
                           private EventCallbackBase<BlockingCommander> {
  public:
   // method to reply when no operation happens
-  virtual std::string NoopReply(const Connection *conn) = 0;
+  virtual std::string NoopReply(Connection *conn) = 0;
 
   // method to block keys
   virtual void BlockKeys() = 0;

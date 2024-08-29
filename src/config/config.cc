@@ -193,6 +193,9 @@ Config::Config() {
       {"json-max-nesting-depth", false, new IntField(&json_max_nesting_depth, 1024, 0, INT_MAX)},
       {"json-storage-format", false,
        new EnumField<JsonStorageFormat>(&json_storage_format, json_storage_formats, JsonStorageFormat::JSON)},
+      {"client-output-buffer-limit", false,
+       new ClientOutputBufferLimitField(&client_output_buffer_limits_,
+                                        "normal 0 0 0 replica 256mb 64mb 60 pubsub 32mb 8mb 60")},
 
       /* rocksdb options */
       {"rocksdb.compression", false,
@@ -980,4 +983,15 @@ Status Config::Rewrite(const std::map<std::string, std::string> &tokens) {
     return {Status::NotOK, fmt::format("rename file encounter error: {}", strerror(errno))};
   }
   return Status::OK();
+}
+
+bool Config::IsClientOutputBufferLimitsEnabled() const {
+  if (!client_output_buffer_limits_.empty()) {
+    for (const auto &limit : client_output_buffer_limits_) {
+      if (limit.hard_limit_bytes != 0 || limit.soft_limit_bytes != 0 || limit.soft_limit_seconds != 0) {
+        return true;
+      }
+    }
+  }
+  return false;
 }

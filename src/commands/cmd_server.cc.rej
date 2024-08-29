@@ -1,0 +1,46 @@
+diff a/src/commands/cmd_server.cc b/src/commands/cmd_server.cc	(rejected hunks)
+@@ -189,7 +189,7 @@ class CommandPing : public Commander {
+  public:
+   Status Execute(Server *srv, Connection *conn, std::string *output) override {
+     if (args_.size() == 1) {
+-      *output = redis::SimpleString("PONG");
++      *output = conn->SimpleString("PONG");
+     } else if (args_.size() == 2) {
+       *output = redis::BulkString(args_[1]);
+     } else {
+@@ -202,7 +202,7 @@ class CommandPing : public Commander {
+ class CommandSelect : public Commander {
+  public:
+   Status Execute(Server *srv, Connection *conn, std::string *output) override {
+-    *output = redis::SimpleString("OK");
++    *output = conn->SimpleString("OK");
+     return Status::OK();
+   }
+ };
+@@ -529,7 +529,7 @@ class CommandMonitor : public Commander {
+  public:
+   Status Execute(Server *srv, Connection *conn, std::string *output) override {
+     conn->Owner()->BecomeMonitorConn(conn);
+-    *output = redis::SimpleString("OK");
++    *output = conn->SimpleString("OK");
+     return Status::OK();
+   }
+ };
+@@ -553,7 +553,7 @@ class CommandQuit : public Commander {
+  public:
+   Status Execute(Server *srv, Connection *conn, std::string *output) override {
+     conn->EnableFlag(redis::Connection::kCloseAfterReply);
+-    *output = redis::SimpleString("OK");
++    *output = conn->SimpleString("OK");
+     return Status::OK();
+   }
+ };
+@@ -820,7 +820,7 @@ class CommandScan : public CommandScanBase {
+  public:
+   CommandScan() : CommandScanBase() {}
+ 
+-  static std::string GenerateOutput(Server *srv, const Connection *conn, const std::vector<std::string> &keys,
++  static std::string GenerateOutput(Server *srv, Connection *conn, const std::vector<std::string> &keys,
+                                     const std::string &end_cursor) {
+     std::vector<std::string> list;
+     if (!end_cursor.empty()) {

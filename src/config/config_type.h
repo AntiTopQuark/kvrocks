@@ -338,3 +338,119 @@ class IntWithUnitField : public ConfigField {
   T max_;
   IntUnit current_unit_ = IntUnit::None;
 };
+
+struct ClientOutputBufferLimitConfig {
+  uint64_t hard_limit_bytes = 0;
+  uint64_t soft_limit_bytes = 0;
+  uint64_t soft_limit_seconds = 0;
+};
+
+constexpr int CLIENT_TYPE_OBUF_COUNT = 3;
+
+class ClientOutputBufferLimitField : public ConfigField {
+ public:
+  ClientOutputBufferLimitField(std::vector<ClientOutputBufferLimitConfig> *limits, std::string default_val)
+      : receiver_(limits), default_val_(std::move(default_val)) {
+    if (receiver_->empty()) {
+      receiver_->resize(CLIENT_TYPE_OBUF_COUNT);
+    }
+    CHECK(Set(default_val_));
+    config_type = ConfigType::SingleConfig;
+  }
+  std::string Default() const override { return default_val_; }
+
+  std::string ToString() const override {
+    std::ostringstream ss;
+    for (size_t i = 0; i < receiver_->size(); ++i) {
+      if (i != 0) ss << " ";
+      ss << clientTypeToString(i) << " " << receiver_->at(i).hard_limit_bytes << " "
+         << receiver_->at(i).soft_limit_bytes << " " << receiver_->at(i).soft_limit_seconds;
+    }
+    return ss.str();
+  }
+
+  Status Set(const std::string &v) override {
+    std::vector<std::string> tokens = splitString(v, ' ');
+    if (tokens.size() % 4 != 0) {
+      return {Status::NotOK, "Wrong number of arguments in buffer limit configuration."};
+    }
+
+    for (size_t i = 0; i < tokens.size(); i += 4) {
+      int class_type = getClientTypeByName(tokens[i]);
+      if (class_type == -1) {
+        return {Status::NotOK, "Invalid client class specified in buffer limit configuration."};
+      }
+
+      uint64_t hard_limit = 0, soft_limit = 0;
+      auto s = capacityToInt(tokens[i + 1], hard_limit);
+      if (!s.IsOK()) return s;
+      s = capacityToInt(tokens[i + 2], soft_limit);
+      if (!s.IsOK()) return s;
+      auto [soft_seconds, rest] = GET_OR_RET(TryParseInt(tokens[i + 3].c_str(), 10));
+      if (*rest != 0) {
+        return {Status::NotOK, "Error in soft_seconds setting in buffer limit configuration."};
+      }
+
+      ClientOutputBufferLimitConfig config = {hard_limit, soft_limit, static_cast<uint64_t>(soft_seconds)};
+      (*receiver_)[class_type] = config;
+    }
+    return Status::OK();
+  }
+
+ private:
+  static std::string clientTypeToString(size_t type) {
+    switch (type) {
+      case 0:
+        return "normal";
+      case 1:
+        return "replica";
+      case 2:
+        return "pubsub";
+      default:
+        return "unknown";
+    }
+  }
+
+  static std::vector<std::string> splitString(const std::string &str, char delim) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream token_stream(str);
+    while (std::getline(token_stream, token, delim)) {
+      tokens.push_back(token);
+    }
+    return tokens;
+  }
+
+  static Status capacityToInt(const std::string &str, uint64_t &capacity) {
+    auto [num, rest] = GET_OR_RET(TryParseInt(str.c_str(), 10));
+
+    if (*rest == 0) {
+      capacity = num;
+    } else if (util::EqualICase(rest, "b")) {
+      capacity = num;
+    } else if (util::EqualICase(rest, "k") || util::EqualICase(rest, "kb")) {
+      capacity = GET_OR_RET(util::CheckedShiftLeft(num, 10));
+    } else if (util::EqualICase(rest, "m") || util::EqualICase(rest, "mb")) {
+      capacity = GET_OR_RET(util::CheckedShiftLeft(num, 20));
+    } else if (util::EqualICase(rest, "g") || util::EqualICase(rest, "gb")) {
+      capacity = GET_OR_RET(util::CheckedShiftLeft(num, 30));
+    } else if (util::EqualICase(rest, "t") || util::EqualICase(rest, "tb")) {
+      capacity = GET_OR_RET(util::CheckedShiftLeft(num, 40));
+    } else if (util::EqualICase(rest, "p") || util::EqualICase(rest, "pb")) {
+      capacity = GET_OR_RET(util::CheckedShiftLeft(num, 50));
+    } else {
+      return {Status::NotOK, fmt::format("encounter unexpected unit: `{}`", rest)};
+    }
+    return Status::OK();
+  }
+
+  static int getClientTypeByName(const std::string &name) {
+    if (name == "normal") return 0;
+    if (name == "replica") return 1;
+    if (name == "pubsub") return 2;
+    return -1;
+  }
+
+  std::vector<ClientOutputBufferLimitConfig> *receiver_;
+  std::string default_val_;
+};

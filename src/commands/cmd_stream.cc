@@ -549,7 +549,7 @@ class CommandXGroup : public Commander {
         return {Status::RedisExecErr, s.ToString()};
       }
 
-      *output = redis::SimpleString("OK");
+      *output = conn->SimpleString("OK");
     }
 
     if (subcommand_ == "destroy") {
@@ -601,7 +601,7 @@ class CommandXGroup : public Commander {
         return {Status::RedisExecErr, s.ToString()};
       }
 
-      *output = redis::SimpleString("OK");
+      *output = conn->SimpleString("OK");
     }
 
     return Status::OK();
@@ -1848,7 +1848,7 @@ class CommandXSetId : public Commander {
       return {Status::RedisExecErr, s.ToString()};
     }
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
 
     return Status::OK();
   }

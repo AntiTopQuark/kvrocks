@@ -1,0 +1,17 @@
+diff a/src/server/worker.cc b/src/server/worker.cc	(rejected hunks)
+@@ -102,8 +102,13 @@ Worker::~Worker() {
+ 
+ void Worker::TimerCB(int, int16_t events) {
+   auto config = srv->GetConfig();
+-  if (config->timeout == 0) return;
+-  KickoutIdleClients(config->timeout);
++  if (config->timeout != 0) {
++    KickoutIdleClients(config->timeout);
++  }
++
++  if (config->IsClientOutputBufferLimitsEnabled()) {
++    KickoutReachOBufLimitsClients();
++  }
+ }
+ 
+ void Worker::newTCPConnection(evconnlistener *listener, evutil_socket_t fd, sockaddr *address, int socklen) {

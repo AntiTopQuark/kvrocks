@@ -184,7 +184,7 @@ class CommandFTCreate : public Commander {
     engine::Context ctx(srv->storage);
     GET_OR_RET(srv->index_mgr.Create(ctx, std::move(index_info_)));
 
-    output->append(redis::SimpleString("OK"));
+    output->append(conn->SimpleString("OK"));
     return Status::OK();
   };
 
@@ -429,16 +429,16 @@ class CommandFTInfo : public Commander {
     const auto &info = iter->second;
     output->append(MultiLen(8));
 
-    output->append(redis::SimpleString("index_name"));
+    output->append(conn->SimpleString("index_name"));
     output->append(redis::BulkString(info->name));
 
-    output->append(redis::SimpleString("on_data_type"));
+    output->append(conn->SimpleString("on_data_type"));
     output->append(redis::BulkString(RedisTypeNames[(size_t)info->metadata.on_data_type]));
 
-    output->append(redis::SimpleString("prefixes"));
+    output->append(conn->SimpleString("prefixes"));
     output->append(redis::ArrayOfBulkStrings(info->prefixes.prefixes));
 
-    output->append(redis::SimpleString("fields"));
+    output->append(conn->SimpleString("fields"));
     output->append(MultiLen(info->fields.size()));
     for (const auto &[_, field] : info->fields) {
       output->append(MultiLen(2));

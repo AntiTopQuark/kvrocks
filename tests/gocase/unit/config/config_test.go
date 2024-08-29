@@ -275,3 +275,47 @@ func TestChangeProtoMaxBulkLen(t *testing.T) {
 	// Must be >= 1MB
 	require.Error(t, rdb.ConfigSet(ctx, "proto-max-bulk-len", "1024").Err())
 }
+
+func TestClientOutputBufferLimitConfig(t *testing.T) {
+	configs := map[string]string{}
+	srv := util.StartServer(t, configs)
+	defer srv.Close()
+
+	ctx := context.Background()
+	rdb := srv.NewClient()
+	defer func() { require.NoError(t, rdb.Close()) }()
+
+	t.Run("Test client-output-buffer-limit parsing", func(t *testing.T) {
+		// Default value
+		vals, err := rdb.ConfigGet(ctx, "client-output-buffer-limit").Result()
+		require.NoError(t, err)
+		require.EqualValues(t, "normal 0 0 0 replica 268435456 67108864 60 pubsub 33554432 8388608 60", vals["client-output-buffer-limit"])
+
+		// only normal
+		require.NoError(t, rdb.ConfigSet(ctx, "client-output-buffer-limit", "normal 1gb 512mb 60").Err())
+		vals, err = rdb.ConfigGet(ctx, "client-output-buffer-limit").Result()
+		require.NoError(t, err)
+		require.EqualValues(t, "normal 1073741824 536870912 60 replica 268435456 67108864 60 pubsub 33554432 8388608 60", vals["client-output-buffer-limit"])
+
+		// only replica
+		require.NoError(t, rdb.ConfigSet(ctx, "client-output-buffer-limit", "replica 512mb 256kb 60").Err())
+		vals, err = rdb.ConfigGet(ctx, "client-output-buffer-limit").Result()
+		require.NoError(t, err)
+		require.EqualValues(t, "normal 1073741824 536870912 60 replica 536870912 262144 60 pubsub 33554432 8388608 60", vals["client-output-buffer-limit"])
+
+		//only pubsub
+		require.NoError(t, rdb.ConfigSet(ctx, "client-output-buffer-limit", "pubsub 256b 128 60").Err())
+		vals, err = rdb.ConfigGet(ctx, "client-output-buffer-limit").Result()
+		require.NoError(t, err)
+		require.EqualValues(t, "normal 1073741824 536870912 60 replica 536870912 262144 60 pubsub 256 128 60", vals["client-output-buffer-limit"])
+
+		// invalid category
+		require.ErrorContains(t, rdb.ConfigSet(ctx, "client-output-buffer-limit", "invalid 0 0 0").Err(), "Invalid client class specified in buffer limit configuration")
+
+		// multiple category
+		require.NoError(t, rdb.ConfigSet(ctx, "client-output-buffer-limit", "normal 0 0 0 replica 0 0 0 pubsub 0 0 0").Err())
+		vals, err = rdb.ConfigGet(ctx, "client-output-buffer-limit").Result()
+		require.NoError(t, err)
+		require.EqualValues(t, "normal 0 0 0 replica 0 0 0 pubsub 0 0 0", vals["client-output-buffer-limit"])
+	})
+}

@@ -67,40 +67,30 @@ class Connection : public EvbufCallbackBase<Connection> {
   void Reply(const std::string &msg);
   RESP GetProtocolVersion() const { return protocol_version_; }
   void SetProtocolVersion(RESP version) { protocol_version_ = version; }
-  std::string Bool(bool b) const { return redis::Bool(protocol_version_, b); }
-  std::string BigNumber(const std::string &n) const { return redis::BigNumber(protocol_version_, n); }
-  std::string Double(double d) const { return redis::Double(protocol_version_, d); }
-  std::string VerbatimString(std::string ext, const std::string &data) const {
-    return redis::VerbatimString(protocol_version_, std::move(ext), data);
-  }
-  std::string NilString() const { return redis::NilString(protocol_version_); }
-  std::string NilArray() const { return redis::NilArray(protocol_version_); }
-  std::string MultiBulkString(const std::vector<std::string> &values) const {
-    return redis::MultiBulkString(protocol_version_, values);
-  }
+  std::string Integer(int64_t i);
+  std::string Bool(bool b);
+  std::string BigNumber(const std::string &n);
+  std::string Double(double d);
+  std::string VerbatimString(std::string ext, const std::string &data);
+  std::string NilString();
+  std::string NilArray();
+  std::string MultiBulkString(const std::vector<std::string> &values);
   std::string MultiBulkString(const std::vector<std::string> &values,
-                              const std::vector<rocksdb::Status> &statuses) const {
-    return redis::MultiBulkString(protocol_version_, values, statuses);
-  }
+                              const std::vector<rocksdb::Status> &statuses);
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-  std::string HeaderOfSet(T len) const {
-    return redis::HeaderOfSet(protocol_version_, len);
-  }
-  std::string SetOfBulkStrings(const std::vector<std::string> &elems) const {
-    return redis::SetOfBulkStrings(protocol_version_, elems);
-  }
+  std::string HeaderOfSet(T len);
+  std::string SetOfBulkStrings(const std::vector<std::string> &elems);
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
   std::string HeaderOfMap(T len) const {
     return redis::HeaderOfMap(protocol_version_, len);
   }
-  std::string MapOfBulkStrings(const std::vector<std::string> &elems) const {
-    return redis::MapOfBulkStrings(protocol_version_, elems);
-  }
-  std::string Map(const std::map<std::string, std::string> &map) const { return redis::Map(protocol_version_, map); }
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-  std::string HeaderOfAttribute(T len) const {
-    return redis::HeaderOfAttribute(len);
-  }
+  std::string HeaderOfMap(T len);
+  std::string MapOfBulkStrings(const std::vector<std::string> &elems);
+  std::string Map(const std::map<std::string, std::string> &map);
+  template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+  std::string HeaderOfAttribute(T len);
+  std::string SimpleString(const std::string &msg);
   std::string HeaderOfPush(int64_t len) const { return redis::HeaderOfPush(protocol_version_, len); }
 
   using UnsubscribeCallback = std::function<void(std::string, int)>;
@@ -158,6 +148,8 @@ class Connection : public EvbufCallbackBase<Connection> {
   int GetFD() { return bufferevent_getfd(bev_); }
   evbuffer *Input() { return bufferevent_get_input(bev_); }
   evbuffer *Output() { return bufferevent_get_output(bev_); }
+  evbuffer *Input() const { return bufferevent_get_input(bev_); }
+  evbuffer *Output() const { return bufferevent_get_output(bev_); }
   bufferevent *GetBufferEvent() { return bev_; }
   void ExecuteCommands(std::deque<CommandTokens> *to_process_cmds);
   Status ExecuteCommand(const std::string &cmd_name, const std::vector<std::string> &cmd_tokens, Commander *current_cmd,
@@ -179,6 +171,15 @@ class Connection : public EvbufCallbackBase<Connection> {
 
   std::set<std::string> watched_keys;
   std::atomic<bool> watched_keys_modified = false;
+
+  bool CheckClientReachOBufLimits(size_t reply_bytes);
+  std::string CheckClientReachOBufLimits(const std::string &msg);
+  void SetObufSoftLimitReachedTime(int64_t time) { obuf_soft_limit_reached_time_ = time; }
+  int64_t GetObufSoftLimitReachedTime() const { return obuf_soft_limit_reached_time_; }
+  inline std::string &GetOutputBuffer() { return output_buffer_; }
+  size_t GetConnectionMemoryUsed() const;
+  void SetReachOBufLimit(bool reach) { is_reach_obuf_limit_ = reach; }
+  bool IsReachOBufLimit() const { return is_reach_obuf_limit_; }
 
  private:
   uint64_t id_ = 0;
@@ -213,6 +214,9 @@ class Connection : public EvbufCallbackBase<Connection> {
 
   bool importing_ = false;
   RESP protocol_version_ = RESP::v2;
+  int64_t obuf_soft_limit_reached_time_ = 0;
+  std::string output_buffer_;
+  mutable bool is_reach_obuf_limit_ = false;
 };
 
 }  // namespace redis

@@ -1136,7 +1136,7 @@ void Server::GetStatsInfo(std::string *info) {
   string_stream << "sync_full:" << stats.fullsync_count << "\r\n";
   string_stream << "sync_partial_ok:" << stats.psync_ok_count << "\r\n";
   string_stream << "sync_partial_err:" << stats.psync_err_count << "\r\n";
-
+  string_stream << "evicted_clients:" << stats.stat_evictedclients << "\r\n";
   auto db_stats = storage->GetDBStats();
   string_stream << "keyspace_hits:" << db_stats->keyspace_hits << "\r\n";
   string_stream << "keyspace_misses:" << db_stats->keyspace_misses << "\r\n";
@@ -1146,6 +1146,8 @@ void Server::GetStatsInfo(std::string *info) {
     string_stream << "pubsub_channels:" << pubsub_channels_.size() << "\r\n";
     string_stream << "pubsub_patterns:" << pubsub_patterns_.size() << "\r\n";
   }
+
+  string_stream << "client_output_buffer_limit_disconnections:" << stats.reach_outbuf_limit_disconnections << "\r\n";
 
   *info = string_stream.str();
 }
@@ -1873,6 +1875,8 @@ void Server::AdjustWorkerThreads() {
   delta = worker_threads_.size() - new_worker_threads;
   LOG(INFO) << "[server] Decrease worker threads from " << worker_threads_.size() << " to " << new_worker_threads;
   decreaseWorkerThreads(delta);
+
+  
 }
 
 void Server::increaseWorkerThreads(size_t delta) {

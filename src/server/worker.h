@@ -69,6 +69,7 @@ class Worker : EventCallbackBase<Worker>, EvconnlistenerBase<Worker> {
   void KillClient(redis::Connection *self, uint64_t id, const std::string &addr, uint64_t type, bool skipme,
                   int64_t *killed);
   void KickoutIdleClients(int timeout);
+  void KickoutReachOBufLimitsClients();
 
   Status ListenUnixSocket(const std::string &path, int perm, int backlog);
 
@@ -76,6 +77,8 @@ class Worker : EventCallbackBase<Worker>, EvconnlistenerBase<Worker> {
 
   lua_State *Lua() { return lua_; }
   std::map<int, redis::Connection *> GetConnections() const { return conns_; }
+  std::mutex &GetConnectionsMutex() { return conns_mu_; }
+  size_t GetConnectionsMemoryUsed();
   Server *srv;
 
  private:

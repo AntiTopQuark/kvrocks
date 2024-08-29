@@ -36,7 +36,7 @@ class CommandMulti : public Commander {
     conn->ResetMultiExec();
     // Client starts into MULTI-EXEC
     conn->EnableFlag(Connection::kMultiExec);
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };
@@ -51,7 +51,7 @@ class CommandDiscard : public Commander {
     auto reset_watch = MakeScopeExit([srv, conn] { srv->ResetWatchedKeys(conn); });
     conn->ResetMultiExec();
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
 
     return Status::OK();
   }
@@ -99,12 +99,12 @@ class CommandWatch : public Commander {
 
     // If a conn is already marked as watched_keys_modified, we can skip the watch.
     if (srv->IsWatchedKeysModified(conn)) {
-      *output = redis::SimpleString("OK");
+      *output = conn->SimpleString("OK");
       return Status::OK();
     }
 
     srv->WatchKey(conn, std::vector<std::string>(args_.begin() + 1, args_.end()));
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };
@@ -113,7 +113,7 @@ class CommandUnwatch : public Commander {
  public:
   Status Execute(Server *srv, Connection *conn, std::string *output) override {
     srv->ResetWatchedKeys(conn);
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };

@@ -94,7 +94,7 @@ class CommandBFReserve : public Commander {
     auto s = bloomfilter_db.Reserve(ctx, args_[1], capacity_, error_rate_, expansion_);
     if (!s.ok()) return {Status::RedisExecErr, s.ToString()};
 
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 
@@ -343,15 +343,15 @@ class CommandBFInfo : public Commander {
     switch (type_) {
       case BloomInfoType::kAll:
         *output = redis::MultiLen(2 * 5);
-        *output += redis::SimpleString("Capacity");
+        *output += conn->SimpleString("Capacity");
         *output += redis::Integer(info.capacity);
-        *output += redis::SimpleString("Size");
+        *output += conn->SimpleString("Size");
         *output += redis::Integer(info.bloom_bytes);
-        *output += redis::SimpleString("Number of filters");
+        *output += conn->SimpleString("Number of filters");
         *output += redis::Integer(info.n_filters);
-        *output += redis::SimpleString("Number of items inserted");
+        *output += conn->SimpleString("Number of items inserted");
         *output += redis::Integer(info.size);
-        *output += redis::SimpleString("Expansion rate");
+        *output += conn->SimpleString("Expansion rate");
         *output += info.expansion == 0 ? conn->NilString() : redis::Integer(info.expansion);
         break;
       case BloomInfoType::kCapacity:
