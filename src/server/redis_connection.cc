@@ -236,13 +236,13 @@ std::string Connection::NilArray() {
 }
 
 std::string Connection::MultiBulkString(const std::vector<std::string> &values) {
-  auto res =  redis::MultiBulkString(protocol_version_, values);
+  auto res = redis::MultiBulkString(protocol_version_, values);
   return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::MultiBulkString(const std::vector<std::string> &values,
-                            const std::vector<rocksdb::Status> &statuses) {
-  auto res =  redis::MultiBulkString(protocol_version_, values, statuses);
+                                        const std::vector<rocksdb::Status> &statuses) {
+  auto res = redis::MultiBulkString(protocol_version_, values, statuses);
   return CheckClientReachOutputBufferLimits(res);
 }
 
@@ -628,7 +628,7 @@ void Connection::ExecuteCommands(std::deque<CommandTokens> *to_process_cmds) {
       reply.clear();
       break;
     }
-  
+
     if (!reply.empty()) {
       Reply(reply);
     }

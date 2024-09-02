@@ -75,11 +75,10 @@ class Connection : public EvbufCallbackBase<Connection> {
   std::string NilString();
   std::string NilArray();
   std::string MultiBulkString(const std::vector<std::string> &values);
-  std::string MultiBulkString(const std::vector<std::string> &values,
-                              const std::vector<rocksdb::Status> &statuses);
+  std::string MultiBulkString(const std::vector<std::string> &values, const std::vector<rocksdb::Status> &statuses);
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
   std::string HeaderOfSet(T len) {
-    auto res =  redis::HeaderOfSet(protocol_version_, len);
+    auto res = redis::HeaderOfSet(protocol_version_, len);
     return CheckClientReachOutputBufferLimits(res);
   }
   std::string SetOfBulkStrings(const std::vector<std::string> &elems);

@@ -1875,8 +1875,6 @@ void Server::AdjustWorkerThreads() {
   delta = worker_threads_.size() - new_worker_threads;
   LOG(INFO) << "[server] Decrease worker threads from " << worker_threads_.size() << " to " << new_worker_threads;
   decreaseWorkerThreads(delta);
-
-  
 }
 
 void Server::increaseWorkerThreads(size_t delta) {

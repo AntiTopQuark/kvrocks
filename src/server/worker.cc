@@ -577,7 +577,8 @@ void Worker::KickoutReachOutputBufferLimitsClients() {
 
     for (auto &it : conns_) {
       auto conn = it.second;
-      if (conn->CheckClientReachOutputBufferLimits(conn->GetOutputBuffer().capacity() + evbuffer_get_length(conn->Output()))) {
+      if (conn->CheckClientReachOutputBufferLimits(conn->GetOutputBuffer().capacity() +
+                                                   evbuffer_get_length(conn->Output()))) {
         to_be_killed_conns.emplace_back(it.first, conn->GetID());
       }
     }
