@@ -438,7 +438,7 @@ Status FunctionCall(redis::Connection *conn, const std::string &name, const std:
 }
 
 // list all library names and their code (enabled via `with_code`)
-Status FunctionList(Server *srv, const redis::Connection *conn, const std::string &libname, bool with_code,
+Status FunctionList(Server *srv, redis::Connection *conn, const std::string &libname, bool with_code,
                     std::string *output) {
   std::string start_key = engine::kLuaLibCodePrefix + libname;
   std::string end_key = start_key;
@@ -478,7 +478,7 @@ Status FunctionList(Server *srv, const redis::Connection *conn, const std::strin
 
 // extension to Redis Function
 // list all function names and their corresponding library names
-Status FunctionListFunc(Server *srv, const redis::Connection *conn, const std::string &funcname, std::string *output) {
+Status FunctionListFunc(Server *srv, redis::Connection *conn, const std::string &funcname, std::string *output) {
   std::string start_key = engine::kLuaFuncLibPrefix + funcname;
   std::string end_key = start_key;
   end_key.back()++;
@@ -517,7 +517,7 @@ Status FunctionListFunc(Server *srv, const redis::Connection *conn, const std::s
 // list detailed informantion of a specific library
 // NOTE: it is required to load the library to lua runtime before listing (calling this function)
 // i.e. it will output nothing if the library is only in storage but not loaded
-Status FunctionListLib(Server *srv, const redis::Connection *conn, const std::string &libname, std::string *output) {
+Status FunctionListLib(Server *srv, redis::Connection *conn, const std::string &libname, std::string *output) {
   auto lua = srv->Lua();
 
   lua_getglobal(lua, REDIS_FUNCTION_LIBRARIES);

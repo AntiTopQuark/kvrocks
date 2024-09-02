@@ -330,7 +330,7 @@ static uint64_t GenerateClusterFlag(uint64_t flags, const std::vector<std::strin
 class CommandReadOnly : public Commander {
  public:
   Status Execute([[maybe_unused]] Server *srv, Connection *conn, std::string *output) override {
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     conn->EnableFlag(redis::Connection::kReadOnly);
     return Status::OK();
   }
@@ -339,7 +339,7 @@ class CommandReadOnly : public Commander {
 class CommandReadWrite : public Commander {
  public:
   Status Execute([[maybe_unused]] Server *srv, Connection *conn, std::string *output) override {
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     conn->DisableFlag(redis::Connection::kReadOnly);
     return Status::OK();
   }
@@ -349,7 +349,7 @@ class CommandAsking : public Commander {
  public:
   Status Execute([[maybe_unused]] Server *srv, Connection *conn, std::string *output) override {
     conn->EnableFlag(redis::Connection::kAsking);
-    *output = redis::SimpleString("OK");
+    *output = conn->SimpleString("OK");
     return Status::OK();
   }
 };

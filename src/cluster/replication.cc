@@ -143,7 +143,7 @@ void FeedSlaveThread::loop() {
     if (is_first_repl_batch || batches_bulk.size() >= kMaxDelayBytes || updates_in_batches >= kMaxDelayUpdates ||
         srv_->storage->LatestSeqNumber() - batch.sequence <= kMaxDelayUpdates) {
       // Send entire bulk which contain multiple batches
-      if (conn_->CheckClientReachOBufLimits(batches_bulk.capacity())) {
+      if (conn_->CheckClientReachOutputBufferLimits(batches_bulk.capacity())) {
         srv_->stats.IncrReachOutbufLimitDisconnections();
         Stop();
         return;

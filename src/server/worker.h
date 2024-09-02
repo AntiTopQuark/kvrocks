@@ -69,7 +69,7 @@ class Worker : EventCallbackBase<Worker>, EvconnlistenerBase<Worker> {
   void KillClient(redis::Connection *self, uint64_t id, const std::string &addr, uint64_t type, bool skipme,
                   int64_t *killed);
   void KickoutIdleClients(int timeout);
-  void KickoutReachOBufLimitsClients();
+  void KickoutReachOutputBufferLimitsClients();
 
   Status ListenUnixSocket(const std::string &path, int perm, int backlog);
 

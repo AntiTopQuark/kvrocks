@@ -345,14 +345,15 @@ struct ClientOutputBufferLimitConfig {
   uint64_t soft_limit_seconds = 0;
 };
 
-constexpr int CLIENT_TYPE_OBUF_COUNT = 3;
+constexpr int CLIENT_TYPE_OUTPUT_BUFFER_COUNT = 3;
 
 class ClientOutputBufferLimitField : public ConfigField {
  public:
+  enum ClientType { NORMAL = 0, REPLICA = 1, PUBSUB = 2 };
   ClientOutputBufferLimitField(std::vector<ClientOutputBufferLimitConfig> *limits, std::string default_val)
       : receiver_(limits), default_val_(std::move(default_val)) {
     if (receiver_->empty()) {
-      receiver_->resize(CLIENT_TYPE_OBUF_COUNT);
+      receiver_->resize(CLIENT_TYPE_OUTPUT_BUFFER_COUNT);
     }
     CHECK(Set(default_val_));
     config_type = ConfigType::SingleConfig;
@@ -381,11 +382,8 @@ class ClientOutputBufferLimitField : public ConfigField {
         return {Status::NotOK, "Invalid client class specified in buffer limit configuration."};
       }
 
-      uint64_t hard_limit = 0, soft_limit = 0;
-      auto s = capacityToInt(tokens[i + 1], hard_limit);
-      if (!s.IsOK()) return s;
-      s = capacityToInt(tokens[i + 2], soft_limit);
-      if (!s.IsOK()) return s;
+      uint64_t hard_limit = GET_OR_RET(ParseSizeAndUnit(tokens[i + 1]));
+      uint64_t soft_limit = GET_OR_RET(ParseSizeAndUnit(tokens[i + 2]));
       auto [soft_seconds, rest] = GET_OR_RET(TryParseInt(tokens[i + 3].c_str(), 10));
       if (*rest != 0) {
         return {Status::NotOK, "Error in soft_seconds setting in buffer limit configuration."};

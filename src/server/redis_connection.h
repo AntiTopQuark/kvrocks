@@ -78,18 +78,23 @@ class Connection : public EvbufCallbackBase<Connection> {
   std::string MultiBulkString(const std::vector<std::string> &values,
                               const std::vector<rocksdb::Status> &statuses);
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-  std::string HeaderOfSet(T len);
+  std::string HeaderOfSet(T len) {
+    auto res =  redis::HeaderOfSet(protocol_version_, len);
+    return CheckClientReachOutputBufferLimits(res);
+  }
   std::string SetOfBulkStrings(const std::vector<std::string> &elems);
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-  std::string HeaderOfMap(T len) const {
-    return redis::HeaderOfMap(protocol_version_, len);
+  std::string HeaderOfMap(T len) {
+    auto res = redis::HeaderOfMap(protocol_version_, len);
+    return CheckClientReachOutputBufferLimits(res);
   }
-  template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-  std::string HeaderOfMap(T len);
   std::string MapOfBulkStrings(const std::vector<std::string> &elems);
   std::string Map(const std::map<std::string, std::string> &map);
   template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-  std::string HeaderOfAttribute(T len);
+  std::string HeaderOfAttribute(T len) {
+    std::string res = redis::HeaderOfAttribute(len);
+    return CheckClientReachOutputBufferLimits(res);
+  }
   std::string SimpleString(const std::string &msg);
   std::string HeaderOfPush(int64_t len) const { return redis::HeaderOfPush(protocol_version_, len); }
 
@@ -172,14 +177,14 @@ class Connection : public EvbufCallbackBase<Connection> {
   std::set<std::string> watched_keys;
   std::atomic<bool> watched_keys_modified = false;
 
-  bool CheckClientReachOBufLimits(size_t reply_bytes);
-  std::string CheckClientReachOBufLimits(const std::string &msg);
-  void SetObufSoftLimitReachedTime(int64_t time) { obuf_soft_limit_reached_time_ = time; }
-  int64_t GetObufSoftLimitReachedTime() const { return obuf_soft_limit_reached_time_; }
+  bool CheckClientReachOutputBufferLimits(size_t reply_bytes);
+  std::string CheckClientReachOutputBufferLimits(const std::string &msg);
+  void SetOutputBufferSoftLimitReachedTime(int64_t time) { output_buffer_soft_limit_reached_time_ = time; }
+  int64_t GetOutputBufferSoftLimitReachedTime() const { return output_buffer_soft_limit_reached_time_; }
   inline std::string &GetOutputBuffer() { return output_buffer_; }
   size_t GetConnectionMemoryUsed() const;
-  void SetReachOBufLimit(bool reach) { is_reach_obuf_limit_ = reach; }
-  bool IsReachOBufLimit() const { return is_reach_obuf_limit_; }
+  void SetReachOutputBufferLimit(bool reach) { is_reach_output_buffer_limit_ = reach; }
+  bool IsReachOutputBufferLimit() const { return is_reach_output_buffer_limit_; }
 
  private:
   uint64_t id_ = 0;
@@ -214,9 +219,9 @@ class Connection : public EvbufCallbackBase<Connection> {
 
   bool importing_ = false;
   RESP protocol_version_ = RESP::v2;
-  int64_t obuf_soft_limit_reached_time_ = 0;
+  int64_t output_buffer_soft_limit_reached_time_ = 0;
   std::string output_buffer_;
-  mutable bool is_reach_obuf_limit_ = false;
+  mutable bool is_reach_output_buffer_limit_ = false;
 };
 
 }  // namespace redis

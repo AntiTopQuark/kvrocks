@@ -52,7 +52,7 @@ Connection::Connection(bufferevent *bev, Worker *owner)
       req_(owner->srv),
       owner_(owner),
       srv_(owner->srv),
-      obuf_soft_limit_reached_time_(0) {
+      output_buffer_soft_limit_reached_time_(0) {
   int64_t now = util::GetTimeStamp();
   create_time_ = now;
   last_interaction_ = now;
@@ -101,6 +101,9 @@ void Connection::OnRead([[maybe_unused]] struct bufferevent *bev) {
 
   ExecuteCommands(req_.GetCommands());
   if (IsFlagEnabled(kCloseAsync)) {
+    Close();
+  }
+  if (IsReachOutputBufferLimit()) {
     Close();
   }
 }
@@ -198,79 +201,69 @@ bool Connection::CanMigrate() const {
 }
 
 std::string Connection::Integer(int64_t i) {
-  auto res = redis::Integer(, i);
-  return CheckClientReachOBufLimits(res);
+  auto res = redis::Integer(i);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::Bool(bool b) {
   auto res = redis::Bool(protocol_version_, b);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::BigNumber(const std::string &n) {
   auto res = redis::BigNumber(protocol_version_, n);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::Double(double d) {
   auto res = redis::Double(protocol_version_, d);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::VerbatimString(std::string ext, const std::string &data) {
   auto res = redis::VerbatimString(protocol_version_, std::move(ext), data);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::NilString() {
   auto res = redis::NilString(protocol_version_);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::NilArray() {
   auto res = redis::NilArray(protocol_version_);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
+
 std::string Connection::MultiBulkString(const std::vector<std::string> &values) {
   auto res =  redis::MultiBulkString(protocol_version_, values);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
+
 std::string Connection::MultiBulkString(const std::vector<std::string> &values,
                             const std::vector<rocksdb::Status> &statuses) {
   auto res =  redis::MultiBulkString(protocol_version_, values, statuses);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
-std::string Connection::HeaderOfSet(T len) {
-  auto res =  redis::HeaderOfSet(protocol_version_, len);
-  return CheckClientReachOBufLimits(res);
-}
+
 std::string Connection::SetOfBulkStrings(const std::vector<std::string> &elems) {
   auto res = redis::SetOfBulkStrings(protocol_version_, elems);
-  return CheckClientReachOBufLimits(res);
-}
-std::string Connection::HeaderOfMap(T len) {
-  auto res = redis::HeaderOfMap(protocol_version_, len);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::MapOfBulkStrings(const std::vector<std::string> &elems) {
   auto res = redis::MapOfBulkStrings(protocol_version_, elems);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::Map(const std::map<std::string, std::string> &map) {
   auto res = redis::Map(protocol_version_, map);
-  return CheckClientReachOBufLimits(res);
-}
-
-std::string Connection::HeaderOfAttribute(T len)  {
-  std::string res = redis::HeaderOfAttribute(len);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 std::string Connection::SimpleString(const std::string &msg) {
   auto res = redis::SimpleString(msg);
-  return CheckClientReachOBufLimits(res);
+  return CheckClientReachOutputBufferLimits(res);
 }
 
 void Connection::SubscribeChannel(const std::string &channel) {
@@ -630,7 +623,7 @@ void Connection::ExecuteCommands(std::deque<CommandTokens> *to_process_cmds) {
 
     srv_->UpdateWatchedKeysFromArgs(cmd_tokens, *attributes);
 
-    if (IsReachOBufLimit()) {
+    if (IsReachOutputBufferLimit()) {
       Reply(redis::Error({Status::NotOK, "client reached output buffer limits"}));
       reply.clear();
       break;
@@ -649,18 +642,18 @@ void Connection::ResetMultiExec() {
   DisableFlag(Connection::kMultiExec);
 }
 
-bool Connection::CheckClientReachOBufLimits(size_t reply_bytes) {
+bool Connection::CheckClientReachOutputBufferLimits(size_t reply_bytes) {
   assert(reply_bytes < SIZE_MAX - (1024 * 64));
   if (reply_bytes == 0 && GetClientType() != kTypeSlave) {
     return false;
   }
-  int client_type = 0;
+  int client_type = ClientOutputBufferLimitField::ClientType::NORMAL;
   if (GetClientType() == kTypeSlave) {
-    client_type = 1;
+    client_type = ClientOutputBufferLimitField::ClientType::REPLICA;
   } else if (GetClientType() == kTypePubsub) {
-    client_type = 2;
+    client_type = ClientOutputBufferLimitField::ClientType::PUBSUB;
   } else {
-    client_type = 0;
+    client_type = ClientOutputBufferLimitField::ClientType::NORMAL;
   }
 
   bool hard = false;
@@ -675,25 +668,25 @@ bool Connection::CheckClientReachOBufLimits(size_t reply_bytes) {
   }
 
   if (soft) {
-    if (GetObufSoftLimitReachedTime() == 0) {
-      SetObufSoftLimitReachedTime(util::GetTimeStamp());
+    if (GetOutputBufferSoftLimitReachedTime() == 0) {
+      SetOutputBufferSoftLimitReachedTime(util::GetTimeStamp());
       soft = false;
     } else {
-      uint64_t elapsed = util::GetTimeStamp() - GetObufSoftLimitReachedTime();
+      uint64_t elapsed = util::GetTimeStamp() - GetOutputBufferSoftLimitReachedTime();
       if (elapsed <= GetServer()->GetConfig()->GetClientOutputBufferLimits()[0].soft_limit_seconds) {
         soft = false;
       }
     }
   } else {
-    SetObufSoftLimitReachedTime(0);
+    SetOutputBufferSoftLimitReachedTime(0);
   }
   return hard || soft;
 }
 
-std::string Connection::CheckClientReachOBufLimits(const std::string &msg) {
+std::string Connection::CheckClientReachOutputBufferLimits(const std::string &msg) {
   auto memSize = msg.size() + GetOutputBuffer().capacity() + evbuffer_get_length(Output());
-  if (CheckClientReachOBufLimits(memSize)) {
-    SetReachOBufLimit(true);
+  if (CheckClientReachOutputBufferLimits(memSize)) {
+    SetReachOutputBufferLimit(true);
     return "";
   }
   return msg;

@@ -177,22 +177,3 @@ func TestClientOutputBufferLimitsPubsub(t *testing.T) {
 		require.Equal(t, oldDisconnections+1, newDisconnections)
 	})
 }
-
-func getEvictedClients(rdb *redis.Client, ctx context.Context) (int, error) {
-	info, err := rdb.Info(ctx, "stats").Result()
-	if err != nil {
-		return 0, err
-	}
-
-	lines := strings.Split(info, "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "evicted_clients:") {
-			parts := strings.Split(line, ":")
-			if len(parts) == 2 {
-				return strconv.Atoi(strings.TrimSpace(parts[1]))
-			}
-		}
-	}
-
-	return 0, fmt.Errorf("evicted_clients not found")
-}

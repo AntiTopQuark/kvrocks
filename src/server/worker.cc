@@ -102,8 +102,13 @@ Worker::~Worker() {
 
 void Worker::TimerCB(int, [[maybe_unused]] int16_t events) {
   auto config = srv->GetConfig();
-  if (config->timeout == 0) return;
-  KickoutIdleClients(config->timeout);
+  if (config->timeout != 0) {
+    KickoutIdleClients(config->timeout);
+  }
+
+  if (config->IsClientOutputBufferLimitsEnabled()) {
+    KickoutReachOutputBufferLimitsClients();
+  }
 }
 
 void Worker::newTCPConnection(evconnlistener *listener, evutil_socket_t fd, [[maybe_unused]] sockaddr *address,
@@ -449,7 +454,7 @@ Status Worker::Reply(int fd, const std::string &reply) {
   auto iter = conns_.find(fd);
   if (iter != conns_.end()) {
     iter->second->SetLastInteraction();
-    if (iter->second->CheckClientReachOBufLimits(reply.size() + evbuffer_get_length(iter->second->Output()))) {
+    if (iter->second->CheckClientReachOutputBufferLimits(reply.size() + evbuffer_get_length(iter->second->Output()))) {
       srv->stats.IncrReachOutbufLimitDisconnections();
       // unlock before calling FreeConnectionByID, otherwise it will cause nested deadlock
       lock.unlock();
@@ -561,7 +566,7 @@ void Worker::KickoutIdleClients(int timeout) {
   }
 }
 
-void Worker::KickoutReachOBufLimitsClients() {
+void Worker::KickoutReachOutputBufferLimitsClients() {
   std::vector<std::pair<int, uint64_t>> to_be_killed_conns;
 
   {
@@ -572,7 +577,7 @@ void Worker::KickoutReachOBufLimitsClients() {
 
     for (auto &it : conns_) {
       auto conn = it.second;
-      if (conn->CheckClientReachOBufLimits(conn->GetOutputBuffer().capacity() + evbuffer_get_length(conn->Output()))) {
+      if (conn->CheckClientReachOutputBufferLimits(conn->GetOutputBuffer().capacity() + evbuffer_get_length(conn->Output()))) {
         to_be_killed_conns.emplace_back(it.first, conn->GetID());
       }
     }
