@@ -181,7 +181,7 @@ class Connection : public EvbufCallbackBase<Connection> {
   void SetOutputBufferSoftLimitReachedTime(int64_t time) { output_buffer_soft_limit_reached_time_ = time; }
   int64_t GetOutputBufferSoftLimitReachedTime() const { return output_buffer_soft_limit_reached_time_; }
   inline std::string &GetOutputBuffer() { return output_buffer_; }
-  size_t GetConnectionMemoryUsed() const;
+  inline std::string &GetSlaveOutputBuffer() { return slave_output_buffer_; }
   void SetReachOutputBufferLimit(bool reach) { is_reach_output_buffer_limit_ = reach; }
   bool IsReachOutputBufferLimit() const { return is_reach_output_buffer_limit_; }
 
@@ -220,6 +220,7 @@ class Connection : public EvbufCallbackBase<Connection> {
   RESP protocol_version_ = RESP::v2;
   int64_t output_buffer_soft_limit_reached_time_ = 0;
   std::string output_buffer_;
+  std::string slave_output_buffer_;
   mutable bool is_reach_output_buffer_limit_ = false;
 };
 

@@ -345,6 +345,7 @@ redis::Connection *Worker::removeConnection(int fd) {
   if (iter != conns_.end()) {
     conn = iter->second;
     conn->GetOutputBuffer().clear();
+    conn->GetSlaveOutputBuffer().clear();
     conns_.erase(iter);
     srv->DecrClientNum();
   }
@@ -577,7 +578,7 @@ void Worker::KickoutReachOutputBufferLimitsClients() {
 
     for (auto &it : conns_) {
       auto conn = it.second;
-      if (conn->CheckClientReachOutputBufferLimits(conn->GetOutputBuffer().capacity() +
+      if (conn->CheckClientReachOutputBufferLimits(conn->GetOutputBuffer().capacity() + conn->GetSlaveOutputBuffer().capacity() +
                                                    evbuffer_get_length(conn->Output()))) {
         to_be_killed_conns.emplace_back(it.first, conn->GetID());
       }
@@ -588,16 +589,6 @@ void Worker::KickoutReachOutputBufferLimitsClients() {
     srv->stats.IncrReachOutbufLimitDisconnections();
     FreeConnectionByID(conn.first, conn.second);
   }
-}
-
-size_t Worker::GetConnectionsMemoryUsed() {
-  size_t mem = 0;
-  std::lock_guard<std::mutex> guard(conns_mu_);
-
-  for (auto &it : conns_) {
-    mem += it.second->GetConnectionMemoryUsed();
-  }
-  return mem;
 }
 
 void WorkerThread::Start() {

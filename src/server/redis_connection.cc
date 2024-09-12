@@ -684,44 +684,11 @@ bool Connection::CheckClientReachOutputBufferLimits(size_t reply_bytes) {
 }
 
 std::string Connection::CheckClientReachOutputBufferLimits(const std::string &msg) {
-  auto memSize = msg.size() + GetOutputBuffer().capacity() + evbuffer_get_length(Output());
+  auto memSize = msg.size() + GetOutputBuffer().capacity() + GetSlaveOutputBuffer().capacity() + evbuffer_get_length(Output());
   if (CheckClientReachOutputBufferLimits(memSize)) {
     SetReachOutputBufferLimit(true);
     return "";
   }
   return msg;
 }
-
-size_t Connection::GetConnectionMemoryUsed() const {
-  size_t total_memory = sizeof(*this);  // 包含所有成员变量的静态内存大小
-
-  total_memory += name_.capacity();
-  total_memory += ns_.capacity();
-  total_memory += ip_.capacity();
-  total_memory += announce_ip_.capacity();
-  total_memory += addr_.capacity();
-  total_memory += last_cmd_.capacity();
-  total_memory += output_buffer_.capacity();
-  total_memory += evbuffer_get_length(Output()) + evbuffer_get_length(Input());
-
-  for (const auto &channel : subscribe_channels_) {
-    total_memory += channel.capacity();
-  }
-  for (const auto &pattern : subscribe_patterns_) {
-    total_memory += pattern.capacity();
-  }
-  for (const auto &channel : subscribe_shard_channels_) {
-    total_memory += channel.capacity();
-  }
-  for (const auto &cmd : multi_cmds_) {
-    total_memory += cmd.capacity();
-  }
-
-  if (saved_current_command_) {
-    total_memory += saved_current_command_->GetMemoryUsage();
-  }
-
-  return total_memory;
-}
-
 }  // namespace redis

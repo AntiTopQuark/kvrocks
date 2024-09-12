@@ -23,21 +23,22 @@
 #include <limits>
 
 #include "bit_util.h"
+#include <iostream>
 
 StatusOr<std::uint64_t> ParseSizeAndUnit(const std::string &v) {
   auto [num, rest] = GET_OR_RET(TryParseInt<std::uint64_t>(v.c_str(), 10));
 
   if (*rest == 0) {
     return num;
-  } else if (util::EqualICase(rest, "k")) {
+  } else if (util::EqualICase(rest, "k") || util::EqualICase(rest, "kb")) {
     return util::CheckedShiftLeft(num, 10);
-  } else if (util::EqualICase(rest, "m")) {
+  } else if (util::EqualICase(rest, "m") || util::EqualICase(rest, "mb")) {
     return util::CheckedShiftLeft(num, 20);
-  } else if (util::EqualICase(rest, "g")) {
+  } else if (util::EqualICase(rest, "g") || util::EqualICase(rest, "gb")) {
     return util::CheckedShiftLeft(num, 30);
-  } else if (util::EqualICase(rest, "t")) {
+  } else if (util::EqualICase(rest, "t") || util::EqualICase(rest, "tb")) {
     return util::CheckedShiftLeft(num, 40);
-  } else if (util::EqualICase(rest, "p")) {
+  } else if (util::EqualICase(rest, "p") || util::EqualICase(rest, "pb")) {
     return util::CheckedShiftLeft(num, 50);
   }
 
