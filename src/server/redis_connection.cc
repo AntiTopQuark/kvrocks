@@ -684,7 +684,8 @@ bool Connection::CheckClientReachOutputBufferLimits(size_t reply_bytes) {
 }
 
 std::string Connection::CheckClientReachOutputBufferLimits(const std::string &msg) {
-  auto memSize = msg.size() + GetOutputBuffer().capacity() + GetSlaveOutputBuffer().capacity() + evbuffer_get_length(Output());
+  auto memSize =
+      msg.size() + GetOutputBuffer().capacity() + GetSlaveOutputBuffer().capacity() + evbuffer_get_length(Output());
   if (CheckClientReachOutputBufferLimits(memSize)) {
     SetReachOutputBufferLimit(true);
     return "";
