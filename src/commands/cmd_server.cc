@@ -599,17 +599,17 @@ class CommandDebug : public Commander {
       } else if (protocol_type_ == "array") {
         *output = redis::MultiLen(3);
         for (int i = 0; i < 3; i++) {
-          *output += redis::Integer(i);
+          *output += GET_OR_RET(conn->Integer(i));
         }
       } else if (protocol_type_ == "set") {
         *output = conn->HeaderOfSet(3);
         for (int i = 0; i < 3; i++) {
-          *output += redis::Integer(i);
+          *output += GET_OR_RET(conn->Integer(i));
         }
       } else if (protocol_type_ == "map") {
         *output = conn->HeaderOfMap(3);
         for (int i = 0; i < 3; i++) {
-          *output += redis::Integer(i);
+          *output += GET_OR_RET(conn->Integer(i));
           *output += conn->Bool(i == 1);
         }
       } else if (protocol_type_ == "bignum") {

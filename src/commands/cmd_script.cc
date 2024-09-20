@@ -86,9 +86,9 @@ class CommandScript : public Commander {
       *output = redis::MultiLen(args_.size() - 2);
       for (size_t j = 2; j < args_.size(); j++) {
         if (srv->ScriptExists(args_[j]).IsOK()) {
-          *output += redis::Integer(1);
+          *output += GET_OR_RET(conn->Integer(1));
         } else {
-          *output += redis::Integer(0);
+          *output += GET_OR_RET(conn->Integer(0));
         }
       }
     } else if (args_.size() == 3 && subcommand_ == "load") {

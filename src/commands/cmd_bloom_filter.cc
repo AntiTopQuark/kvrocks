@@ -149,10 +149,10 @@ class CommandBFMAdd : public Commander {
     for (size_t i = 0; i < items_.size(); ++i) {
       switch (rets[i]) {
         case BloomFilterAddResult::kOk:
-          *output += redis::Integer(1);
+          *output += GET_OR_RET(conn->Integer(1));
           break;
         case BloomFilterAddResult::kExist:
-          *output += redis::Integer(0);
+          *output += GET_OR_RET(conn->Integer(0));
           break;
         case BloomFilterAddResult::kFull:
           *output += redis::Error({Status::NotOK, errFilterFull});
@@ -246,10 +246,10 @@ class CommandBFInsert : public Commander {
     for (size_t i = 0; i < items_.size(); ++i) {
       switch (rets[i]) {
         case BloomFilterAddResult::kOk:
-          *output += redis::Integer(1);
+          *output += GET_OR_RET(conn->Integer(1));
           break;
         case BloomFilterAddResult::kExist:
-          *output += redis::Integer(0);
+          *output += GET_OR_RET(conn->Integer(0));
           break;
         case BloomFilterAddResult::kFull:
           *output += redis::Error({Status::NotOK, errFilterFull});
@@ -297,7 +297,7 @@ class CommandBFMExists : public Commander {
 
     *output = redis::MultiLen(items_.size());
     for (size_t i = 0; i < items_.size(); ++i) {
-      *output += Integer(exists[i] ? 1 : 0);
+      *output += GET_OR_RET(conn->Integer(exists[i] ? 1 : 0));
     }
     return Status::OK();
   }
@@ -343,16 +343,16 @@ class CommandBFInfo : public Commander {
     switch (type_) {
       case BloomInfoType::kAll:
         *output = redis::MultiLen(2 * 5);
-        *output += conn->SimpleString("Capacity");
-        *output += redis::Integer(info.capacity);
-        *output += conn->SimpleString("Size");
-        *output += redis::Integer(info.bloom_bytes);
-        *output += conn->SimpleString("Number of filters");
-        *output += redis::Integer(info.n_filters);
-        *output += conn->SimpleString("Number of items inserted");
-        *output += redis::Integer(info.size);
-        *output += conn->SimpleString("Expansion rate");
-        *output += info.expansion == 0 ? conn->NilString() : redis::Integer(info.expansion);
+        *output += GET_OR_RET((conn->SimpleString("Capacity"));
+        *output += GET_OR_RET(conn->Integer(info.capacity));
+        *output += GET_OR_RET((conn->SimpleString("Size"));
+        *output += GET_OR_RET(conn->Integer(info.bloom_bytes));
+        *output += GET_OR_RET((conn->SimpleString("Number of filters"));
+        *output += GET_OR_RET(conn->Integer(info.n_filters));
+        *output += GET_OR_RET((conn->SimpleString("Number of items inserted"));
+        *output += GET_OR_RET(conn->Integer(info.size));
+        *output += GET_OR_RET((conn->SimpleString("Expansion rate"));
+        *output += info.expansion == 0 ? GET_OR_RET(conn->NilString()) : GET_OR_RET(conn->Integer(info.expansion));
         break;
       case BloomInfoType::kCapacity:
         *output = redis::Integer(info.capacity);

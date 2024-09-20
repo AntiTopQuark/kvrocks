@@ -688,17 +688,17 @@ class CommandLCS : public Commander {
       for (const auto &match : result->matches) {
         *output += redis::MultiLen(with_match_len_ ? 3 : 2);
         *output += redis::MultiLen(2);
-        *output += redis::Integer(match.a.start);
-        *output += redis::Integer(match.a.end);
+        *output += GET_OR_RET(conn->Integer(match.a.start));
+        *output += GET_OR_RET(conn->Integer(match.a.end));
         *output += redis::MultiLen(2);
-        *output += redis::Integer(match.b.start);
-        *output += redis::Integer(match.b.end);
+        *output += GET_OR_RET(conn->Integer(match.b.start));
+        *output += GET_OR_RET(conn->Integer(match.b.end));
         if (with_match_len_) {
-          *output += redis::Integer(match.match_len);
+          *output += GET_OR_RET(conn->Integer(match.match_len));
         }
       }
       *output += redis::BulkString("len");
-      *output += redis::Integer(result->len);
+      *output += GET_OR_RET(conn->Integer(result->len));
     }
 
     return Status::OK();

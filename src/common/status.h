@@ -75,6 +75,9 @@ class [[nodiscard]] Status {
     // Search
     NoPrefixMatched,
     TypeMismatched,
+
+    // Memory
+    ReachClientOutputBufferLimit,
   };
 
   Status() : impl_{nullptr} {}

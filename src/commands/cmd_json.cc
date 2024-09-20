@@ -37,7 +37,7 @@ std::string OptionalsToString(Connection *conn, Optionals<T> &opts) {
   std::string str = MultiLen(opts.size());
   for (const auto &opt : opts) {
     if (opt.has_value()) {
-      str += redis::Integer(opt.value());
+      str += GET_OR_RET(conn->Integer(opt.value()));
     } else {
       str += conn->NilString();
     }
@@ -48,7 +48,7 @@ std::string OptionalsToString(Connection *conn, Optionals<T> &opts) {
 std::string SizeToString(const std::vector<std::size_t> &elems) {
   std::string result = MultiLen(elems.size());
   for (const auto &elem : elems) {
-    result += redis::Integer(elem);
+    result += GET_OR_RET(conn->Integer(elem));
   }
   return result;
 }
@@ -240,7 +240,7 @@ class CommandJsonObjkeys : public Commander {
     *output = redis::MultiLen(results.size());
     for (const auto &item : results) {
       if (item.has_value()) {
-        *output += ArrayOfBulkStrings(item.value());
+        *output += GET_OR_RET(conn->ArrayOfBulkStrings(item.value()));
       } else {
         *output += conn->NilString();
       }

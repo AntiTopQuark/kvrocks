@@ -200,70 +200,117 @@ bool Connection::CanMigrate() const {
          && subscribe_channels_.empty() && subscribe_patterns_.empty();  // not subscribing any channel
 }
 
-std::string Connection::Integer(int64_t i) {
+StatusOr<std::string> Connection::Integer(int64_t i) {
   auto res = redis::Integer(i);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::Bool(bool b) {
+StatusOr<std::string> Connection::Bool(bool b) {
   auto res = redis::Bool(protocol_version_, b);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::BigNumber(const std::string &n) {
+StatusOr<std::string> Connection::BigNumber(const std::string &n) {
   auto res = redis::BigNumber(protocol_version_, n);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::Double(double d) {
+StatusOr<std::string> Connection::Double(double d) {
   auto res = redis::Double(protocol_version_, d);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::VerbatimString(std::string ext, const std::string &data) {
+StatusOr<std::string> Connection::VerbatimString(std::string ext, const std::string &data) {
   auto res = redis::VerbatimString(protocol_version_, std::move(ext), data);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::NilString() {
+StatusOr<std::string> Connection::NilString() {
   auto res = redis::NilString(protocol_version_);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::NilArray() {
+StatusOr<std::string> Connection::NilArray() {
   auto res = redis::NilArray(protocol_version_);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::MultiBulkString(const std::vector<std::string> &values) {
+StatusOr<std::string> Connection::MultiBulkString(const std::vector<std::string> &values) {
   auto res = redis::MultiBulkString(protocol_version_, values);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::MultiBulkString(const std::vector<std::string> &values,
+StatusOr<std::string> Connection::MultiBulkString(const std::vector<std::string> &values,
                                         const std::vector<rocksdb::Status> &statuses) {
   auto res = redis::MultiBulkString(protocol_version_, values, statuses);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::SetOfBulkStrings(const std::vector<std::string> &elems) {
+StatusOr<std::string> Connection::SetOfBulkStrings(const std::vector<std::string> &elems) {
   auto res = redis::SetOfBulkStrings(protocol_version_, elems);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::MapOfBulkStrings(const std::vector<std::string> &elems) {
+StatusOr<std::string> Connection::MapOfBulkStrings(const std::vector<std::string> &elems) {
   auto res = redis::MapOfBulkStrings(protocol_version_, elems);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::Map(const std::map<std::string, std::string> &map) {
+StatusOr<std::string> Connection::Map(const std::map<std::string, std::string> &map) {
   auto res = redis::Map(protocol_version_, map);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
-std::string Connection::SimpleString(const std::string &msg) {
+StatusOr<std::string> Connection::SimpleString(const std::string &msg) {
   auto res = redis::SimpleString(msg);
-  return CheckClientReachOutputBufferLimits(res);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
+}
+
+StatusOr<std::string> Connection::ArrayOfBulkStrings(const std::vector<std::string> &elems) {
+  auto res = redis::ArrayOfBulkStrings(msg);
+  if (CheckClientReachOutputBufferLimits(res)) {
+    return {Status::ReachClientOutputBufferLimit, "client reached output buffer limits"};
+  }
+  return res;
 }
 
 void Connection::SubscribeChannel(const std::string &channel) {
@@ -683,13 +730,9 @@ bool Connection::CheckClientReachOutputBufferLimits(size_t reply_bytes) {
   return hard || soft;
 }
 
-std::string Connection::CheckClientReachOutputBufferLimits(const std::string &msg) {
+bool Connection::CheckClientReachOutputBufferLimits(const std::string &msg) {
   auto memSize =
       msg.size() + GetOutputBuffer().capacity() + GetSlaveOutputBuffer().capacity() + evbuffer_get_length(Output());
-  if (CheckClientReachOutputBufferLimits(memSize)) {
-    SetReachOutputBufferLimit(true);
-    return "";
-  }
-  return msg;
+  return CheckClientReachOutputBufferLimits(memSize);
 }
 }  // namespace redis
